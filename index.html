@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ECG Frankenstein — Presentación</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --bg:     #050508;
+    --panel:  #0a0a0f;
+    --green:  #00ff88;
+    --amber:  #ffaa00;
+    --red:    #ff3030;
+    --blue:   #38b6ff;
+    --pink:   #da8adb;
+    --border: #1e1e2e;
+    --dim:    #2a2a3a;
+    --text:   #b0b8c8;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Share Tech Mono', monospace;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body::before {
+    content:'';
+    position:fixed;
+    inset:0;
+    background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);
+    pointer-events:none;
+    z-index:999;
+  }
+
+  .progress {
+    width: min(940px,96vw);
+    height: 2px;
+    background: var(--border);
+    margin-bottom: 4px;
+    flex-shrink:0;
+  }
+  .progress-fill {
+    height:100%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    transition: width 0.4s ease;
+  }
+
+  .stage {
+    width: min(940px,96vw);
+    aspect-ratio: 16/9;
+    position: relative;
+    border: 1px solid var(--dim);
+    overflow: hidden;
+    box-shadow: 0 0 40px rgba(0,255,136,0.07);
+  }
+  .stage::before { content:''; position:absolute; top:0;left:0; width:18px;height:18px; border-top:2px solid var(--green); border-left:2px solid var(--green); z-index:10; }
+  .stage::after  { content:''; position:absolute; bottom:0;right:0; width:18px;height:18px; border-bottom:2px solid var(--green); border-right:2px solid var(--green); z-index:10; }
+
+  .slide {
+    position:absolute;
+    inset:0;
+    display:none;
+    flex-direction:column;
+    background: var(--bg);
+  }
+  .slide.active { display:flex; }
+  .slide::before {
+    content:'';
+    position:absolute;
+    inset:0;
+    background:
+      repeating-linear-gradient(0deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px),
+      repeating-linear-gradient(90deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px);
+    opacity:0.35;
+    pointer-events:none;
+  }
+
+  .nav {
+    width: min(940px,96vw);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 5px 0;
+    flex-shrink:0;
+  }
+  .nav-btn {
+    background: transparent;
+    border: 1px solid var(--dim);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    padding: 4px 14px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+  .nav-btn:hover { border-color:var(--green); box-shadow:0 0 8px rgba(0,255,136,0.3); }
+  .nav-btn:disabled { opacity:0.25; cursor:default; box-shadow:none; }
+  .counter { font-size:0.65rem; color:var(--dim); letter-spacing:3px; }
+
+  /* ── PORTADA ── */
+  .s1 { align-items:center; justify-content:center; text-align:center; gap:0.6rem; }
+  .s1-tag  { font-size:clamp(0.5rem,1vw,0.65rem); letter-spacing:4px; color:var(--amber); }
+  .s1-title { font-family:'IM Fell English',serif; font-size:clamp(2rem,6vw,4rem); color:#e8e0cc; text-shadow:0 0 40px rgba(255,170,0,0.25); line-height:1; }
+  .s1-title span { color:var(--amber); font-style:italic; }
+  .s1-sub  { font-size:clamp(0.52rem,1.1vw,0.68rem); color:#555; letter-spacing:2px; }
+  .s1-eq   { border:1px solid var(--dim); border-left:3px solid var(--green); padding:0.5rem 1.5rem; font-size:clamp(0.8rem,2vw,1.1rem); color:var(--green); text-shadow:0 0 10px rgba(0,255,136,0.5); letter-spacing:2px; margin-top:0.4rem; }
+  .dots { display:flex; gap:6px; margin-top:0.9rem; }
+  .dot  { width:7px;height:7px;border-radius:50%;background:var(--dim);transition:all 0.3s; }
+  .dot.on { background:var(--green);box-shadow:0 0 6px var(--green); }
+
+  /* ── SLIDE GENÉRICO ── */
+  .sb { flex:1; display:flex; flex-direction:column; padding:clamp(0.55rem,1.3vw,0.9rem) clamp(0.7rem,1.8vw,1.2rem); position:relative; z-index:1; overflow:hidden; }
+  .sh { display:flex; align-items:baseline; gap:0.6rem; border-bottom:1px solid var(--dim); padding-bottom:0.35rem; margin-bottom:0.5rem; flex-shrink:0; }
+  .sn { font-size:0.58rem; color:var(--amber); letter-spacing:3px; }
+  .st { font-family:'IM Fell English',serif; font-size:clamp(0.9rem,2vw,1.25rem); color:#e8e0cc; }
+  .st span { color:var(--green); }
+
+  .cards { display:grid; gap:0.5rem; flex:1; align-content:start; }
+  .c3 { grid-template-columns:1fr 1fr 1fr; }
+  .c2 { grid-template-columns:1fr 1fr; }
+
+  .card {
+    border:1px solid var(--dim);
+    border-left:2px solid;
+    padding:clamp(0.4rem,0.9vw,0.65rem) clamp(0.45rem,1vw,0.7rem);
+    background:rgba(255,255,255,0.012);
+    display:flex; flex-direction:column; gap:0.2rem;
+    position:relative; overflow:hidden;
+  }
+  .card::after { content:''; position:absolute; top:5px;right:7px; width:5px;height:5px;border-radius:50%;background:currentColor;opacity:0.45; }
+  .ctag  { font-size:clamp(0.46rem,0.82vw,0.56rem); letter-spacing:2px; opacity:0.5; text-transform:uppercase; }
+  .cname { font-family:'IM Fell English',serif; font-size:clamp(0.72rem,1.5vw,0.93rem); line-height:1.2; }
+  .cdef  { font-size:clamp(0.56rem,1.05vw,0.7rem); line-height:1.55; color:var(--text); flex:1; }
+  .cex   { font-size:clamp(0.5rem,0.9vw,0.61rem); opacity:0.5; margin-top:auto; padding-top:0.2rem; border-top:1px solid var(--border); font-style:italic; }
+
+  .vg { border-left-color:var(--green); color:var(--green); }
+  .va { border-left-color:var(--amber); color:var(--amber); }
+  .vb { border-left-color:var(--blue);  color:var(--blue);  }
+  .vr { border-left-color:var(--red);   color:var(--red);   }
+  .vp { border-left-color:var(--pink);  color:var(--pink);  }
+
+  .arrow-row { display:flex; align-items:center; gap:0.5rem; flex-shrink:0; margin:0.25rem 0; }
+  .aline { flex:1; height:1px; position:relative; }
+  .aline::after { content:'▶'; position:absolute; right:-4px; top:-7px; font-size:0.58rem; }
+  .alabel { font-size:clamp(0.46rem,0.85vw,0.58rem); letter-spacing:1px; opacity:0.5; white-space:nowrap; }
+
+  /* ejemplos */
+  .ex-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; flex:1; }
+  .ex-card { border:1px solid var(--dim); border-top:2px solid var(--green); padding:0.5rem 0.65rem; display:flex; flex-direction:column; gap:0.15rem; background:rgba(0,255,136,0.015); }
+  .ex-icon { font-size:clamp(0.85rem,1.8vw,1.1rem); }
+  .ex-name { font-family:'IM Fell English',serif; font-size:clamp(0.68rem,1.4vw,0.85rem); color:var(--green); }
+  .ex-desc { font-size:clamp(0.53rem,0.98vw,0.66rem); color:var(--text); line-height:1.42; }
+  .ex-link { font-size:clamp(0.48rem,0.85vw,0.58rem); color:var(--amber); opacity:0.65; margin-top:auto; }
+
+  /* cierre */
+  .s6 { align-items:center; justify-content:center; text-align:center; gap:0.75rem; }
+  .s6-chain { display:flex; align-items:center; gap:0.3rem; flex-wrap:wrap; justify-content:center; }
+  .s6-pill  { border:1px solid var(--dim); padding:0.18rem 0.55rem; font-size:clamp(0.46rem,0.85vw,0.58rem); color:var(--green); letter-spacing:1px; }
+  .s6-arr   { color:var(--dim); font-size:0.7rem; }
+  .s6-eq    { font-size:clamp(0.82rem,1.9vw,1.1rem); color:var(--green); text-shadow:0 0 12px rgba(0,255,136,0.5); border:1px solid var(--dim); border-left:3px solid var(--green); padding:0.45rem 1.4rem; letter-spacing:2px; }
+  .s6-quote { font-family:'IM Fell English',serif; font-size:clamp(0.78rem,1.85vw,1.05rem); color:#c8c0a8; max-width:580px; line-height:1.65; }
+  .s6-quote em { color:var(--amber); font-style:italic; }
+
+  .kbd { font-size:0.57rem; color:#2a2a3a; letter-spacing:1px; margin-top:2px; }
+</style>
+</head>
+<body>
+
+<div class="progress"><div class="progress-fill" id="pf"></div></div>
+
+<div class="stage">
+
+  <!-- SLIDE 1 — PORTADA -->
+  <div class="slide s1 active" data-i="0">
+    <div class="s1-tag">⚡ LABORATORIO DE REANIMACIÓN MATEMÁTICA ⚡</div>
+    <div class="s1-title">ECG <span>Frankenstein</span></div>
+    <div class="s1-sub">SISTEMAS DINÁMICOS · MODELO VAN DER POL · MAPA CONCEPTUAL</div>
+    <div class="s1-eq">ẍ − μ(1−x²)ẋ + ω²x = 0</div>
+    <div class="dots" id="dots">
+      <div class="dot on"></div><div class="dot"></div><div class="dot"></div>
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+  </div>
+
+  <!-- SLIDE 2 — Fundamentos -->
+  <div class="slide" data-i="1">
+    <div class="sb">
+      <div class="sh"><span class="sn">01 ·</span><span class="st">Fundamentos del <span>Modelo</span></span></div>
+      <div class="cards c3">
+        <div class="card vg">
+          <div class="ctag">núcleo</div>
+          <div class="cname">Sistema Dinámico</div>
+          <div class="cdef">Conjunto de reglas matemáticas que describen cómo evoluciona un estado en el tiempo. El corazón es un sistema dinámico: su voltaje cambia instante a instante según la ecuación.</div>
+          <div class="cex">→ El ECG es la "película" del estado cardíaco</div>
+        </div>
+        <div class="card va">
+          <div class="ctag">tipo de función</div>
+          <div class="cname">Función No Lineal</div>
+          <div class="cdef">Lineal = salida proporcional a la entrada (línea recta). No lineal = puede oscilar, crecer o colapsar de forma compleja. Van der Pol es no lineal por el término (1−x²).</div>
+          <div class="cex">→ Sin no linealidad no hay latido estable</div>
+        </div>
+        <div class="card vb">
+          <div class="ctag">tipo de modelo</div>
+          <div class="cname">Modelo Determinista</div>
+          <div class="cdef">Mismas condiciones iniciales → mismo resultado siempre. Sin azar. Con x₀ = 0.1 y μ = 2, el ECG simulado es siempre idéntico al correr el algoritmo.</div>
+          <div class="cex">→ Opuesto al modelo estocástico (con ruido)</div>
+        </div>
+      </div>
+      <div class="arrow-row">
+        <div class="aline vg" style="color:var(--green)"></div>
+        <span class="alabel">el sistema dinámico usa funciones no lineales · el modelo es de tipo determinista</span>
+        <div class="aline vg" style="color:var(--green)"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 3 — Órbita · Período · Algoritmo -->
+  <div class="slide" data-i="2">
+    <div class="sb">
+      <div class="sh"><span class="sn">02 ·</span><span class="st">Trayectoria, Repetición y <span>Cálculo</span></span></div>
+      <div class="cards c3">
+        <div class="card vg">
+          <div class="ctag">trayectoria</div>
+          <div class="cname">Órbita</div>
+          <div class="cdef">Secuencia de estados que recorre el sistema en el tiempo. En el ECG: la curva verde del monitor. Una órbita cerrada significa que el sistema se repite de forma exacta.</div>
+          <div class="cex">→ El trazo del ECG es la órbita del sistema</div>
+        </div>
+        <div class="card va">
+          <div class="ctag">propiedad</div>
+          <div class="cname">Período</div>
+          <div class="cdef">Tiempo que tarda la órbita en volver al estado inicial. Con ω = 1 Hz: período ≈ 1 segundo, lo que equivale a 60 latidos por minuto (lpm).</div>
+          <div class="cex">→ Cambiar ω → bradicardia o taquicardia</div>
+        </div>
+        <div class="card vb">
+          <div class="ctag">herramienta</div>
+          <div class="cname">Algoritmo (RK4)</div>
+          <div class="cdef">Secuencia finita de pasos para resolver un problema. Runge-Kutta 4 calcula el ECG paso a paso cada Δt = 0.005 s, aproximando la solución con alta precisión numérica.</div>
+          <div class="cex">→ Sin algoritmo no podemos "ver" la solución</div>
+        </div>
+      </div>
+      <div class="arrow-row">
+        <div class="aline" style="color:var(--amber)"></div>
+        <span class="alabel">el algoritmo calcula la órbita · de la órbita extraemos el período del sistema</span>
+        <div class="aline" style="color:var(--amber)"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4 — Caos · Sensibilidad · Conjetura -->
+  <div class="slide" data-i="3">
+    <div class="sb">
+      <div class="sh"><span class="sn">03 ·</span><span class="st">Límites: <span style="color:var(--red)">Caos</span> y lo Desconocido</span></div>
+      <div class="cards c3">
+        <div class="card vr">
+          <div class="ctag">comportamiento límite</div>
+          <div class="cname">Caos</div>
+          <div class="cdef">Sistema determinista cuyo comportamiento es impredecible a largo plazo. No es azar: es complejidad extrema generada por reglas simples. Con μ muy alto el ECG se vuelve irregular.</div>
+          <div class="cex">→ Modelo logístico con r > 3.57 → caos puro</div>
+        </div>
+        <div class="card vr">
+          <div class="ctag">causa del caos</div>
+          <div class="cname">Sensibilidad a C. Iniciales</div>
+          <div class="cdef">Un cambio mínimo en el punto de partida genera trayectorias completamente distintas a largo plazo. Es exactamente la razón por la que el caos es impredecible.</div>
+          <div class="cex">→ Péndulo doble: 0.001° de diferencia → caos total</div>
+        </div>
+        <div class="card vp">
+          <div class="ctag">matemáticas abiertas</div>
+          <div class="cname">Conjetura</div>
+          <div class="cdef">Afirmación que parece verdadera y tiene evidencia, pero aún no fue demostrada formalmente. Es el motor de la investigación matemática moderna.</div>
+          <div class="cex">→ Collatz: cualquier número llega a 1 (sin demostrar)</div>
+        </div>
+      </div>
+      <div class="arrow-row">
+        <div class="aline" style="color:var(--red)"></div>
+        <span class="alabel">la sensibilidad a condiciones iniciales es la causa directa del caos</span>
+        <div class="aline" style="color:var(--red)"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 5 — Emergente + Ejemplos -->
+  <div class="slide" data-i="4">
+    <div class="sb">
+      <div class="sh"><span class="sn">04 ·</span><span class="st">Comportamiento <span>Emergente</span> · Ejemplos</span></div>
+      <div style="display:flex;gap:0.55rem;flex:1;overflow:hidden;">
+        <div style="width:35%;display:flex;flex-direction:column;gap:0.45rem;">
+          <div class="card vg" style="flex:1;">
+            <div class="ctag">fenómeno</div>
+            <div class="cname">Comportamiento Emergente</div>
+            <div class="cdef">Patrón complejo que surge espontáneamente de reglas simples. Nadie lo programó; aparece solo cuando el sistema evoluciona en el tiempo.</div>
+            <div class="cex">→ El latido emerge de una sola ecuación</div>
+          </div>
+          <div style="text-align:center;color:var(--green);font-size:0.9rem;flex-shrink:0;">↓</div>
+          <div class="card va" style="flex-shrink:0;padding:0.45rem 0.6rem;">
+            <div class="cdef" style="font-size:clamp(0.53rem,0.95vw,0.63rem);">
+              Reglas simples (Van der Pol)<br>
+              <span style="color:var(--green);">→</span> Patrón complejo (ECG)<br>
+              <span style="color:var(--amber);">→</span> Latido (emergente)
+            </div>
+          </div>
+        </div>
+        <div class="ex-grid">
+          <div class="ex-card">
+            <div class="ex-icon">🔵</div>
+            <div class="ex-name">Péndulo Doble</div>
+            <div class="ex-desc">Sistema determinista simple que genera caos real. Cambia 0.001° y la trayectoria es completamente diferente.</div>
+            <div class="ex-link">→ caos · sensibilidad</div>
+          </div>
+          <div class="ex-card">
+            <div class="ex-icon">📈</div>
+            <div class="ex-name">Modelo Logístico</div>
+            <div class="ex-desc">xₙ₊₁ = r·xₙ(1−xₙ). Con r pequeño: órbita estable. Con r > 3.57: caos puro. Una regla, dos mundos.</div>
+            <div class="ex-link">→ caos · período · órbita</div>
+          </div>
+          <div class="ex-card">
+            <div class="ex-icon">🔢</div>
+            <div class="ex-name">Conjetura de Collatz</div>
+            <div class="ex-desc">Par → ÷2 · Impar → ×3+1. Siempre parece llegar a 1. Nadie ha podido probarlo ni refutarlo.</div>
+            <div class="ex-link">→ conjetura · algoritmo</div>
+          </div>
+          <div class="ex-card">
+            <div class="ex-icon">🐦</div>
+            <div class="ex-name">Bandada de Pájaros</div>
+            <div class="ex-desc">Solo 3 reglas simples por pájaro generan vuelo coordinado de miles. Comportamiento emergente puro.</div>
+            <div class="ex-link">→ emergente · sistema dinámico</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 6 — CIERRE -->
+  <div class="slide s6" data-i="5">
+    <div class="s6-chain">
+      <span class="s6-pill">Sistema Dinámico</span><span class="s6-arr">→</span>
+      <span class="s6-pill">Función No Lineal</span><span class="s6-arr">→</span>
+      <span class="s6-pill">Algoritmo RK4</span><span class="s6-arr">→</span>
+      <span class="s6-pill">Órbita · Período</span><span class="s6-arr">→</span>
+      <span class="s6-pill">Comportamiento Emergente</span>
+    </div>
+    <div class="s6-eq">ẍ − μ(1−x²)ẋ + ω²x = 0</div>
+    <div class="s6-quote">
+      "Hemos usado funciones y algoritmos no para repetir,<br>
+      sino para <em>explorar lo desconocido</em> y modelar fenómenos complejos.<br>
+      El corazón de Frankenstein late gracias a las matemáticas."
+    </div>
+    <div class="dots" id="dots2">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <div class="dot"></div><div class="dot"></div><div class="dot on"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="nav">
+  <button class="nav-btn" id="prev" onclick="go(-1)" disabled>◀ ANTERIOR</button>
+  <span class="counter" id="ctr">01 / 06</span>
+  <button class="nav-btn" id="next" onclick="go(1)">SIGUIENTE ▶</button>
+</div>
+<div class="kbd">[ ← → ] FLECHAS DEL TECLADO PARA NAVEGAR</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const N = slides.length;
+  let cur = 0;
+
+  function go(d){
+    slides[cur].classList.remove('active');
+    cur = Math.max(0, Math.min(N-1, cur+d));
+    slides[cur].classList.add('active');
+    document.getElementById('ctr').textContent = `0${cur+1} / 0${N}`;
+    document.getElementById('prev').disabled = cur===0;
+    document.getElementById('next').disabled = cur===N-1;
+    document.getElementById('pf').style.width = `${((cur+1)/N)*100}%`;
+    ['dots','dots2'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('on',i===cur));
+    });
+  }
+
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key==='ArrowDown') go(1);
+    if(e.key==='ArrowLeft' ||e.key==='ArrowUp')   go(-1);
+  });
+
+  document.getElementById('pf').style.width=`${(1/N)*100}%`;
+</script>
+</body>
+</html>
